@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-canvas:        #0A0A0A;
+  --bg-surface:       #141414;
+  --bg-surface-warm:  #1C1C1C;
+  --ink-primary:      #FFFFFF;
+  --ink-secondary:    rgba(255, 255, 255, 0.55);
+  --ink-tertiary:     rgba(255, 255, 255, 0.30);
+  --accent-positive:  #4ADE80;
+  --accent-negative:  #F87171;
+  --border-hairline:  rgba(255, 255, 255, 0.10);
+  --pill-mint-bg:     rgba(74, 222, 128, 0.12);
+  --pill-mint-ink:    #4ADE80;
+  --pill-peach-bg:    rgba(251, 146, 60, 0.12);
+  --pill-peach-ink:   #FB923C;
+  --pill-slate-bg:    rgba(255, 255, 255, 0.07);
+  --pill-slate-ink:   rgba(255, 255, 255, 0.50);
+}
+
+html,
+body {
+  overscroll-behavior: none;
+}
+
+html {
+  background: var(--bg-canvas);
+}
+
+body {
+  background: var(--bg-canvas);
+  color: var(--ink-primary);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Page mount fade-up animation — 8px per PRD §3 */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 200ms ease-out both;
+}
+
+/* Mobile nav sheet slide-down animation — 200ms per PRD §3 */
+@keyframes slide-down {
+  from {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 200ms ease-out both;
+}
