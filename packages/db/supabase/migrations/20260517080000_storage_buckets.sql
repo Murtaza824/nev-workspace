@@ -9,6 +9,7 @@ values
 on conflict (id) do nothing;
 
 -- Storage RLS policies for memos bucket
+drop policy if exists "admins can upload memos" on storage.objects;
 create policy "admins can upload memos"
   on storage.objects for insert
   with check (
@@ -20,6 +21,7 @@ create policy "admins can upload memos"
     )
   );
 
+drop policy if exists "admins can update memos" on storage.objects;
 create policy "admins can update memos"
   on storage.objects for update
   using (
@@ -31,6 +33,7 @@ create policy "admins can update memos"
     )
   );
 
+drop policy if exists "authenticated can read memos" on storage.objects;
 create policy "authenticated can read memos"
   on storage.objects for select
   using (
@@ -39,6 +42,7 @@ create policy "authenticated can read memos"
   );
 
 -- Storage RLS policies for update-pdfs bucket
+drop policy if exists "admins can upload update-pdfs" on storage.objects;
 create policy "admins can upload update-pdfs"
   on storage.objects for insert
   with check (
@@ -50,6 +54,7 @@ create policy "admins can upload update-pdfs"
     )
   );
 
+drop policy if exists "admins can update update-pdfs" on storage.objects;
 create policy "admins can update update-pdfs"
   on storage.objects for update
   using (
@@ -61,6 +66,7 @@ create policy "admins can update update-pdfs"
     )
   );
 
+drop policy if exists "authenticated can read update-pdfs" on storage.objects;
 create policy "authenticated can read update-pdfs"
   on storage.objects for select
   using (
