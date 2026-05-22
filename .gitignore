@@ -1,0 +1,27 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+.next
+dist
+.turbo
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.local.example
+
+# Supabase local dev
+supabase/.branches
+supabase/.temp
+
+# OS
+.DS_Store
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
