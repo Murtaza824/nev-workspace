@@ -33,6 +33,7 @@ type SignalDetail = {
     full_name: string | null
     current_title: string | null
     current_company: string | null
+    linkedin_url: string | null
   } | null
 }
 
@@ -73,7 +74,7 @@ export default async function SignalDetailPage({ params }: { params: Params }) {
   const { data: rawSignal } = await supabase
     .from('sourcing_signals')
     .select(
-      'id, signal_type, source, person_id, company_id, event_at, detected_at, summary, evidence, score, score_breakdown, cluster_id, status, sourcing_people(id, full_name, current_title, current_company)'
+      'id, signal_type, source, person_id, company_id, event_at, detected_at, summary, evidence, score, score_breakdown, cluster_id, status, sourcing_people(id, full_name, current_title, current_company, linkedin_url)'
     )
     .eq('id', id)
     .single()
@@ -84,6 +85,7 @@ export default async function SignalDetailPage({ params }: { params: Params }) {
   const person = signal.sourcing_people
   const name = person?.full_name ?? 'Unknown'
   const context = person?.current_title ?? person?.current_company ?? null
+  const linkedinUrl = person?.linkedin_url ?? null
   const colors = signalTypeColors[signal.signal_type] ?? signalTypeColors.job_change
   const initials = getInitials(name)
   const score = signal.score
@@ -172,6 +174,19 @@ export default async function SignalDetailPage({ params }: { params: Params }) {
             <div className="text-[13px]" style={{ color: 'var(--color-text-tertiary)' }}>
               {context}
             </div>
+          )}
+          {linkedinUrl && (
+            <a
+              href={linkedinUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-[4px] font-mono text-[11px] mt-[3px]"
+              style={{ color: 'var(--color-text-tertiary)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <i className="ti ti-brand-linkedin" style={{ fontSize: '12px' }} aria-hidden="true" />
+              LinkedIn
+            </a>
           )}
           <div
             className="flex items-center gap-[8px] mt-[6px] font-mono text-[11px]"
