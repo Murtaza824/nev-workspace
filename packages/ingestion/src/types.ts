@@ -6,6 +6,7 @@
 export interface IngestionContext {
   supabaseUrl: string
   serviceRoleKey: string
+  crustdataApiKey: string
   sinceAt: Date
   dryRun?: boolean
 }
@@ -40,7 +41,9 @@ export interface SignalBatch {
 }
 
 export interface PeopleUpdate {
+  id?: string
   linkedin_url: string
+  full_name?: string
   current_title?: string
   current_company?: string
   last_enriched_at: Date

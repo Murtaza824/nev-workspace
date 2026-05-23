@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  /* Legacy tokens (kept for backward compat) */
   --color-canvas: #FFFFFF;
   --color-surface: #F7F7F6;
   --color-border: rgba(0, 0, 0, 0.10);
@@ -11,6 +12,32 @@
   --color-ink-tertiary: #9E9E9E;
   --color-accent-negative: #C0392B;
   --color-accent-positive: #0F6E56;
+
+  /* Design system canonical tokens */
+  --color-background-primary: #FFFFFF;
+  --color-background-secondary: #F7F6F4;
+  --color-background-tertiary: #F0EFEC;
+  --color-text-primary: #1A1A1A;
+  --color-text-secondary: #525252;
+  --color-text-tertiary: #8A8A8A;
+  --color-border-primary: rgba(0, 0, 0, 0.16);
+  --color-border-secondary: rgba(0, 0, 0, 0.10);
+  --color-border-tertiary: rgba(0, 0, 0, 0.06);
+  --color-accent-teal: #0F6E56;
+  --color-accent-green-dot: #1D9E75;
+
+  /* Border radius */
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-full: 999px;
+  --border-radius-circle: 50%;
+
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 2px;
 }
 
 * {

@@ -382,6 +382,221 @@ export type Database = {
         }
         Relationships: []
       }
+      sourcing_people: {
+        Row: {
+          id: string
+          linkedin_url: string
+          full_name: string | null
+          current_title: string | null
+          current_company: string | null
+          headline: string | null
+          seniority_tier: 'founder' | 'vp' | 'staff' | 'senior' | 'ic' | null
+          tier_1_alum: boolean
+          prior_companies: string[]
+          last_enriched_at: string | null
+          data: Record<string, unknown> | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          linkedin_url: string
+          full_name?: string | null
+          current_title?: string | null
+          current_company?: string | null
+          headline?: string | null
+          seniority_tier?: 'founder' | 'vp' | 'staff' | 'senior' | 'ic' | null
+          tier_1_alum?: boolean
+          prior_companies?: string[]
+          last_enriched_at?: string | null
+          data?: Record<string, unknown> | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          linkedin_url?: string
+          full_name?: string | null
+          current_title?: string | null
+          current_company?: string | null
+          headline?: string | null
+          seniority_tier?: 'founder' | 'vp' | 'staff' | 'senior' | 'ic' | null
+          tier_1_alum?: boolean
+          prior_companies?: string[]
+          last_enriched_at?: string | null
+          data?: Record<string, unknown> | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sourcing_signals: {
+        Row: {
+          id: string
+          signal_type: 'stealth_entry' | 'job_change' | 'new_company' | 'hiring_spike' | 'domain_registered' | 'github_org_created' | 'delaware_filing'
+          source: 'crustdata' | 'linkedin' | 'twitter' | 'github' | 'opencorporates' | 'whois'
+          person_id: string | null
+          company_id: string | null
+          event_at: string | null
+          detected_at: string
+          summary: string | null
+          evidence: Record<string, unknown> | null
+          score: number | null
+          score_breakdown: { recency: number; density: number; cluster: number; seniority: number; tier: number } | null
+          status: 'new' | 'reviewed' | 'pursuing' | 'passed' | 'snoozed'
+          snoozed_until: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          signal_type: 'stealth_entry' | 'job_change' | 'new_company' | 'hiring_spike' | 'domain_registered' | 'github_org_created' | 'delaware_filing'
+          source: 'crustdata' | 'linkedin' | 'twitter' | 'github' | 'opencorporates' | 'whois'
+          person_id?: string | null
+          company_id?: string | null
+          event_at?: string | null
+          detected_at?: string
+          summary?: string | null
+          evidence?: Record<string, unknown> | null
+          score?: number | null
+          score_breakdown?: Record<string, number> | null
+          status?: 'new' | 'reviewed' | 'pursuing' | 'passed' | 'snoozed'
+          snoozed_until?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          signal_type?: 'stealth_entry' | 'job_change' | 'new_company' | 'hiring_spike' | 'domain_registered' | 'github_org_created' | 'delaware_filing'
+          source?: 'crustdata' | 'linkedin' | 'twitter' | 'github' | 'opencorporates' | 'whois'
+          person_id?: string | null
+          company_id?: string | null
+          event_at?: string | null
+          detected_at?: string
+          summary?: string | null
+          evidence?: Record<string, unknown> | null
+          score?: number | null
+          score_breakdown?: Record<string, number> | null
+          status?: 'new' | 'reviewed' | 'pursuing' | 'passed' | 'snoozed'
+          snoozed_until?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sourcing_signals_person_id_fkey'
+            columns: ['person_id']
+            referencedRelation: 'sourcing_people'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      sourcing_companies: {
+        Row: {
+          id: string
+          name: string
+          domain: string | null
+          status: 'public' | 'stealth' | 'announced' | 'shut_down' | null
+          linkedin_url: string | null
+          hq_state: string | null
+          headcount: number | null
+          last_enriched_at: string | null
+          data: Record<string, unknown> | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          domain?: string | null
+          status?: 'public' | 'stealth' | 'announced' | 'shut_down' | null
+          linkedin_url?: string | null
+          hq_state?: string | null
+          headcount?: number | null
+          last_enriched_at?: string | null
+          data?: Record<string, unknown> | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          domain?: string | null
+          status?: 'public' | 'stealth' | 'announced' | 'shut_down' | null
+          linkedin_url?: string | null
+          hq_state?: string | null
+          headcount?: number | null
+          last_enriched_at?: string | null
+          data?: Record<string, unknown> | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sourcing_watchlists: {
+        Row: {
+          id: string
+          name: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sourcing_signal_notes: {
+        Row: {
+          id: string
+          signal_id: string
+          author_id: string
+          body: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          signal_id: string
+          author_id: string
+          body: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          signal_id?: string
+          author_id?: string
+          body?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sourcing_signal_notes_signal_id_fkey'
+            columns: ['signal_id']
+            referencedRelation: 'sourcing_signals'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sourcing_signal_notes_author_id_fkey'
+            columns: ['author_id']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
     }
     Views: { [_ in never]: never }
     Functions: {
