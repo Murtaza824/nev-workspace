@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createServerClient } from '@nev/db'
+import { LinkedInButton } from './LinkedInButton'
 import {
   signalTypeColors,
   signalTypeLabels,
@@ -28,6 +29,7 @@ type FeedSignal = {
     full_name: string | null
     current_title: string | null
     current_company: string | null
+    linkedin_url: string | null
   } | null
 }
 
@@ -44,7 +46,7 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
   const feedQuery = supabase
     .from('sourcing_signals')
     .select(
-      'id, signal_type, source, person_id, event_at, detected_at, summary, score, status, sourcing_people(id, full_name, current_title, current_company)'
+      'id, signal_type, source, person_id, event_at, detected_at, summary, score, status, sourcing_people(id, full_name, current_title, current_company, linkedin_url)'
     )
     .in('status', [...ACTIVE_STATUSES])
     .order('score', { ascending: false, nullsFirst: false })
@@ -304,6 +306,12 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
                   <span>
                     {signalCount} {signalCount === 1 ? 'SIGNAL' : 'SIGNALS'}
                   </span>
+                  {person?.linkedin_url && (
+                    <>
+                      <span>·</span>
+                      <LinkedInButton url={person.linkedin_url} />
+                    </>
+                  )}
                 </div>
               </div>
 
