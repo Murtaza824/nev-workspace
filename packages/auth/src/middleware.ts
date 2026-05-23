@@ -58,23 +58,14 @@ export function createAccessMiddleware(toolId: string) {
       return NextResponse.redirect(`${AUTH_URL}/login?next=${next}`)
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile } = await supabase
       .from('profiles')
       .select('app_access, status')
       .eq('id', user.id)
       .single()
 
-    if (!profile) {
-      const reason = profileError?.code ?? 'no_profile'
-      return NextResponse.redirect(`${AUTH_URL}/no-access?reason=${reason}&uid=${user.id}`)
-    }
-    if (profile.status !== 'active') {
-      return NextResponse.redirect(`${AUTH_URL}/no-access?reason=inactive&uid=${user.id}`)
-    }
-    const appAccess = profile.app_access as string[]
-    if (!appAccess.includes(toolId)) {
-      const raw = JSON.stringify(appAccess)
-      return NextResponse.redirect(`${AUTH_URL}/no-access?reason=no_tool&tool=${toolId}&uid=${user.id}&access=${encodeURIComponent(raw)}`)
+    if (!profile || profile.status !== 'active' || !(profile.app_access as string[]).includes(toolId)) {
+      return NextResponse.redirect(`${AUTH_URL}/no-access`)
     }
 
     return responseRef.current
