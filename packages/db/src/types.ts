@@ -382,6 +382,39 @@ export type Database = {
         }
         Relationships: []
       }
+      sourcing_clusters: {
+        Row: {
+          id: string
+          cluster_type: 'multi_signal' | 'cofounder_pair'
+          primary_entity_type: 'person' | 'company' | null
+          primary_entity_id: string | null
+          signal_count: number
+          earliest_signal_at: string
+          latest_signal_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          cluster_type: 'multi_signal' | 'cofounder_pair'
+          primary_entity_type?: 'person' | 'company' | null
+          primary_entity_id?: string | null
+          signal_count?: number
+          earliest_signal_at: string
+          latest_signal_at: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          cluster_type?: 'multi_signal' | 'cofounder_pair'
+          primary_entity_type?: 'person' | 'company' | null
+          primary_entity_id?: string | null
+          signal_count?: number
+          earliest_signal_at?: string
+          latest_signal_at?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       sourcing_people: {
         Row: {
           id: string
@@ -443,6 +476,7 @@ export type Database = {
           evidence: Record<string, unknown> | null
           score: number | null
           score_breakdown: { recency: number; density: number; cluster: number; seniority: number; tier: number } | null
+          cluster_id: string | null
           status: 'new' | 'reviewed' | 'pursuing' | 'passed' | 'snoozed'
           snoozed_until: string | null
           created_at: string
@@ -477,12 +511,19 @@ export type Database = {
           evidence?: Record<string, unknown> | null
           score?: number | null
           score_breakdown?: Record<string, number> | null
+          cluster_id?: string | null
           status?: 'new' | 'reviewed' | 'pursuing' | 'passed' | 'snoozed'
           snoozed_until?: string | null
           created_at?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: 'sourcing_signals_cluster_id_fkey'
+            columns: ['cluster_id']
+            referencedRelation: 'sourcing_clusters'
+            referencedColumns: ['id']
+          },
           {
             foreignKeyName: 'sourcing_signals_person_id_fkey'
             columns: ['person_id']

@@ -26,6 +26,7 @@ type SignalDetail = {
   evidence: Record<string, unknown> | null
   score: number | null
   score_breakdown: Record<string, number> | null
+  cluster_id: string | null
   status: 'new' | 'reviewed' | 'pursuing' | 'passed' | 'snoozed'
   sourcing_people: {
     id: string
@@ -33,6 +34,12 @@ type SignalDetail = {
     current_title: string | null
     current_company: string | null
   } | null
+}
+
+type ClusterPeer = {
+  id: string
+  person_id: string | null
+  sourcing_people: { full_name: string | null } | null
 }
 
 type RelatedSignal = {
@@ -66,7 +73,7 @@ export default async function SignalDetailPage({ params }: { params: Params }) {
   const { data: rawSignal } = await supabase
     .from('sourcing_signals')
     .select(
-      'id, signal_type, source, person_id, company_id, event_at, detected_at, summary, evidence, score, score_breakdown, status, sourcing_people(id, full_name, current_title, current_company)'
+      'id, signal_type, source, person_id, company_id, event_at, detected_at, summary, evidence, score, score_breakdown, cluster_id, status, sourcing_people(id, full_name, current_title, current_company)'
     )
     .eq('id', id)
     .single()
@@ -97,17 +104,28 @@ export default async function SignalDetailPage({ params }: { params: Params }) {
     ? supabase.from('sourcing_signals').select('id, signal_type, detected_at, summary, score').eq('company_id', signal.company_id).neq('id', id).order('detected_at', { ascending: false }).limit(5)
     : null
 
-  const [relatedResult, { data: rawNotes }] = await Promise.all([
+  const clusterPeersQuery = signal.cluster_id
+    ? supabase
+        .from('sourcing_signals')
+        .select('id, person_id, sourcing_people(full_name)')
+        .eq('cluster_id', signal.cluster_id)
+        .neq('id', id)
+        .limit(5)
+    : null
+
+  const [relatedResult, { data: rawNotes }, clusterPeersResult] = await Promise.all([
     relatedFilterBase ?? Promise.resolve({ data: [] }),
     supabase
       .from('sourcing_signal_notes')
       .select('id, body, created_at, profiles(full_name)')
       .eq('signal_id', id)
       .order('created_at', { ascending: true }),
+    clusterPeersQuery ?? Promise.resolve({ data: [] }),
   ])
 
   const relatedSignals = (relatedResult.data ?? []) as unknown as RelatedSignal[]
   const notes = (rawNotes ?? []) as unknown as SignalNote[]
+  const clusterPeers = (clusterPeersResult.data ?? []) as unknown as ClusterPeer[]
   const currentStatus = (signal.status === 'new' ? 'reviewed' : signal.status) as 'reviewed' | 'pursuing' | 'passed' | 'snoozed'
 
   return (
@@ -176,6 +194,34 @@ export default async function SignalDetailPage({ params }: { params: Params }) {
           </div>
         </div>
       </div>
+
+      {/* Cofounder cluster banner */}
+      {clusterPeers.length > 0 && (
+        <div
+          className="py-[12px] flex items-start gap-[10px]"
+          style={{ borderBottom: '0.5px solid var(--color-border-tertiary)', background: 'var(--color-background-primary)' }}
+        >
+          <i className="ti ti-link" style={{ fontSize: '14px', color: 'var(--color-accent-teal)', marginTop: '1px', flexShrink: 0 }} aria-hidden="true" />
+          <div>
+            <div className="font-mono text-[10px] tracking-[0.06em] mb-[4px]" style={{ color: 'var(--color-accent-teal)' }}>
+              COFOUNDER CLUSTER
+            </div>
+            <div className="flex flex-col gap-[2px]">
+              {clusterPeers.map(peer => (
+                <Link
+                  key={peer.id}
+                  href={`/signal/${peer.id}`}
+                  className="text-[13px]"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  {peer.sourcing_people?.full_name ?? 'Unknown'}
+                  <i className="ti ti-arrow-right" style={{ fontSize: '11px', marginLeft: '4px', verticalAlign: '-1px' }} aria-hidden="true" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Score breakdown */}
       {breakdown && (
