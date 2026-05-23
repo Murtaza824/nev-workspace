@@ -182,7 +182,6 @@ export default async function SignalDetailPage({ params }: { params: Params }) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-[4px] font-mono text-[11px] mt-[3px]"
               style={{ color: 'var(--color-text-tertiary)' }}
-              onClick={e => e.stopPropagation()}
             >
               <i className="ti ti-brand-linkedin" style={{ fontSize: '12px' }} aria-hidden="true" />
               LinkedIn
