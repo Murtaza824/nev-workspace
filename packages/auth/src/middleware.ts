@@ -66,13 +66,15 @@ export function createAccessMiddleware(toolId: string) {
 
     if (!profile) {
       const reason = profileError?.code ?? 'no_profile'
-      return NextResponse.redirect(`${AUTH_URL}/no-access?reason=${reason}&uid=${user.id.slice(0, 8)}`)
+      return NextResponse.redirect(`${AUTH_URL}/no-access?reason=${reason}&uid=${user.id}`)
     }
     if (profile.status !== 'active') {
-      return NextResponse.redirect(`${AUTH_URL}/no-access?reason=inactive`)
+      return NextResponse.redirect(`${AUTH_URL}/no-access?reason=inactive&uid=${user.id}`)
     }
-    if (!profile.app_access.includes(toolId)) {
-      return NextResponse.redirect(`${AUTH_URL}/no-access?reason=no_tool&tool=${toolId}&access=${(profile.app_access as string[]).join(',')}`)
+    const appAccess = profile.app_access as string[]
+    if (!appAccess.includes(toolId)) {
+      const raw = JSON.stringify(appAccess)
+      return NextResponse.redirect(`${AUTH_URL}/no-access?reason=no_tool&tool=${toolId}&uid=${user.id}&access=${encodeURIComponent(raw)}`)
     }
 
     return responseRef.current
