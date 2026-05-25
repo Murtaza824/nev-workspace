@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
   if (error || !data.user) {
-    return NextResponse.redirect(`${origin}/login?error=auth_failed`)
+    const msg = encodeURIComponent(error?.message ?? 'no_user')
+    return NextResponse.redirect(`${origin}/login?error=auth_failed&msg=${msg}`)
   }
 
   // No-op if there is no pending invitation for this email.
