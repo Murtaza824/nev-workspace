@@ -4,6 +4,20 @@ import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 
+function clearStaleAuthCookies() {
+  // Stale session cookies from previous failed attempts cause the Supabase
+  // client to try refreshing a broken session on init, which deadlocks before
+  // exchangeCodeForSession can run. Clear them but preserve the PKCE verifier.
+  document.cookie.split('; ').forEach(raw => {
+    const name = raw.split('=')[0].trim()
+    if (name.startsWith('sb-') && !name.endsWith('-code-verifier')) {
+      const base = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+      document.cookie = base
+      document.cookie = `${base}; domain=.neweraventures.com`
+    }
+  })
+}
+
 function CallbackHandler({ setStatus }: { setStatus: (s: string) => void }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -20,15 +34,26 @@ function CallbackHandler({ setStatus }: { setStatus: (s: string) => void }) {
           return
         }
 
+        setStatus('Preparing…')
+        clearStaleAuthCookies()
+
         setStatus('Exchanging code…')
-        // No custom cookieOptions here — the domain option interferes with the
-        // PKCE verifier lookup. A server hop below re-writes with parent domain.
+        // isSingleton: false forces a fresh client so no stale lock or
+        // initializePromise from the login page can block this exchange.
         const supabase = createBrowserClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          { isSingleton: false },
         )
 
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+        const result = await Promise.race([
+          supabase.auth.exchangeCodeForSession(code),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('exchange_timed_out_15s')), 15000),
+          ),
+        ])
+
+        const { data, error } = result
 
         if (error || !data.user) {
           const msg = error?.message ?? 'no_user'
@@ -43,8 +68,6 @@ function CallbackHandler({ setStatus }: { setStatus: (s: string) => void }) {
           p_user_email: data.user.email!,
         })
 
-        // Hand off to a server route that re-writes session cookies with the
-        // parent domain so all *.neweraventures.com apps share the session.
         const finaliseUrl = `/api/finalise-auth${next ? `?next=${encodeURIComponent(next)}` : ''}`
         setStatus('Setting session…')
         window.location.replace(finaliseUrl)
