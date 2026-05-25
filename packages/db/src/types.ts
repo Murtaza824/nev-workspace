@@ -425,7 +425,11 @@ export type Database = {
           headline: string | null
           seniority_tier: 'founder' | 'vp' | 'staff' | 'senior' | 'ic' | null
           tier_1_alum: boolean
+          tier_1_companies: string[]
           prior_companies: string[]
+          github_username: string | null
+          twitter_handle: string | null
+          location: string | null
           last_enriched_at: string | null
           data: Record<string, unknown> | null
           created_at: string

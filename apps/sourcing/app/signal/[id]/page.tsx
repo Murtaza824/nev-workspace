@@ -160,9 +160,19 @@ export default async function SignalDetailPage({ params }: { params: Params }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-[8px] flex-wrap mb-[2px]">
-            <span className="text-[17px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              {name}
-            </span>
+            {person?.id ? (
+              <Link
+                href={`/person/${person.id}`}
+                className="text-[17px] font-medium"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                {name}
+              </Link>
+            ) : (
+              <span className="text-[17px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                {name}
+              </span>
+            )}
             <span
               className="font-mono text-[10px] tracking-[0.06em] px-[7px] py-[1px] rounded-[4px]"
               style={{ background: colors.bg, color: colors.fg }}
@@ -371,18 +381,26 @@ export default async function SignalDetailPage({ params }: { params: Params }) {
           NOTES
         </div>
         {notes.length > 0 ? (
-          <div className="flex flex-col gap-[12px] mb-[14px]">
+          <div className="flex flex-col gap-[8px] mb-[14px]">
             {notes.map(note => (
-              <div key={note.id}>
+              <div
+                key={note.id}
+                className="py-[10px] pl-[14px] pr-[12px]"
+                style={{
+                  borderLeft: '3px solid #C5C3BC',
+                  background: '#ECEAE5',
+                  borderRadius: '0 8px 8px 0',
+                }}
+              >
                 <div
-                  className="flex items-center gap-[8px] mb-[3px] font-mono text-[11px]"
+                  className="flex items-center gap-[8px] mb-[5px] font-mono text-[11px]"
                   style={{ color: 'var(--color-text-tertiary)' }}
                 >
                   <span>{note.profiles?.full_name ?? 'Unknown'}</span>
                   <span>·</span>
                   <span>{formatRelativeTime(note.created_at)}</span>
                 </div>
-                <p className="text-[13px] leading-[1.5]" style={{ color: 'var(--color-text-secondary)' }}>
+                <p className="text-[13px] leading-[1.5]" style={{ color: 'var(--color-text-primary)' }}>
                   {note.body}
                 </p>
               </div>

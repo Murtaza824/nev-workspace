@@ -1,6 +1,9 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { createServerClient } from '@nev/db'
 import { LinkedInButton } from './LinkedInButton'
+import { PersonButton } from './PersonButton'
+import { SearchBar } from './SearchBar'
 import {
   signalTypeColors,
   signalTypeLabels,
@@ -12,7 +15,13 @@ import {
   getSourceLabel,
 } from './lib/signal-helpers'
 
-type SearchParams = Promise<{ filter?: string }>
+type SearchParams = Promise<{
+  filter?: string
+  q?: string
+  min_score?: string
+  search?: string
+  page?: string
+}>
 
 type FeedSignal = {
   id: string
@@ -34,33 +43,44 @@ type FeedSignal = {
 }
 
 const ACTIVE_STATUSES = ['new', 'reviewed', 'pursuing'] as const
+const PAGE_SIZE = 50
 
 export default async function HomePage({ searchParams }: { searchParams: SearchParams }) {
-  const { filter } = await searchParams
+  const { filter, q, min_score, search, page: pageParam } = await searchParams
+
   const activeFilter = FILTER_ORDER.includes(filter as (typeof FILTER_ORDER)[number])
     ? (filter as string)
     : null
+  const searchQuery = q?.trim() ?? ''
+  const minScore = min_score ? parseInt(min_score, 10) : null
+  const showSearch = !!searchQuery || search === '1'
+  const page = Math.max(1, parseInt(pageParam ?? '1', 10))
+  const offset = (page - 1) * PAGE_SIZE
 
   const supabase = await createServerClient()
 
-  const feedQuery = supabase
+  let feedQuery = supabase
     .from('sourcing_signals')
     .select(
       'id, signal_type, source, person_id, event_at, detected_at, summary, score, status, sourcing_people(id, full_name, current_title, current_company, linkedin_url)'
     )
     .in('status', [...ACTIVE_STATUSES])
     .order('score', { ascending: false, nullsFirst: false })
-    .limit(50)
+    .range(offset, offset + PAGE_SIZE - 1)
+
+  if (activeFilter) feedQuery = feedQuery.eq('signal_type', activeFilter)
+  if (searchQuery) feedQuery = feedQuery.ilike('summary', `%${searchQuery}%`)
+  if (minScore !== null && !isNaN(minScore)) feedQuery = feedQuery.gte('score', minScore)
 
   const [
     { data: rawSignals },
     { data: allSignalTypes },
-    { count: signals24h },
+    { count: signals7d },
     { count: highPriorityCount },
     { count: peopleCount },
     { count: watchlistCount },
   ] = await Promise.all([
-    activeFilter ? feedQuery.eq('signal_type', activeFilter) : feedQuery,
+    feedQuery,
     supabase
       .from('sourcing_signals')
       .select('signal_type')
@@ -68,7 +88,7 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
     supabase
       .from('sourcing_signals')
       .select('*', { count: 'exact', head: true })
-      .gte('detected_at', new Date(Date.now() - 86_400_000).toISOString()),
+      .gte('detected_at', new Date(Date.now() - 7 * 86_400_000).toISOString()),
     supabase
       .from('sourcing_signals')
       .select('*', { count: 'exact', head: true })
@@ -95,6 +115,29 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
 
   const availableFilters = FILTER_ORDER.filter(type => (filterCounts[type] ?? 0) > 0)
 
+  // Build search-preserving URLs for filter chips and pagination
+  function chipHref(type: string | null) {
+    const params = new URLSearchParams()
+    if (type) params.set('filter', type)
+    if (searchQuery) params.set('q', searchQuery)
+    if (minScore !== null) params.set('min_score', String(minScore))
+    const s = params.toString()
+    return s ? `/?${s}` : '/'
+  }
+
+  function pageHref(p: number) {
+    const params = new URLSearchParams()
+    if (activeFilter) params.set('filter', activeFilter)
+    if (searchQuery) params.set('q', searchQuery)
+    if (minScore !== null) params.set('min_score', String(minScore))
+    if (p > 1) params.set('page', String(p))
+    const s = params.toString()
+    return s ? `/?${s}` : '/'
+  }
+
+  const hasPrev = page > 1
+  const hasNext = signals.length === PAGE_SIZE
+
   return (
     <main
       className="min-h-screen px-6 py-4"
@@ -103,7 +146,7 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
       {/* App header */}
       <div
         className="flex items-center justify-between pb-[14px]"
-        style={{ borderBottom: '0.5px solid var(--color-border-tertiary)' }}
+        style={{ borderBottom: showSearch ? 'none' : '0.5px solid var(--color-border-tertiary)' }}
       >
         <div className="flex items-center gap-[10px]">
           <div
@@ -138,31 +181,47 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
             />
             Streaming
           </span>
-          <button aria-label="Search" className="leading-none cursor-pointer">
+          <Link
+            href={showSearch ? '/' : '/?search=1'}
+            aria-label="Search"
+            className="leading-none"
+            style={{ color: showSearch ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}
+          >
             <i className="ti ti-search" style={{ fontSize: '16px' }} aria-hidden="true" />
-          </button>
-          <button aria-label="Filter settings" className="leading-none cursor-pointer">
-            <i className="ti ti-adjustments-horizontal" style={{ fontSize: '16px' }} aria-hidden="true" />
-          </button>
+          </Link>
+          <Link href="/pursuing" aria-label="Pursuing" className="leading-none">
+            <i className="ti ti-star" style={{ fontSize: '16px' }} aria-hidden="true" />
+          </Link>
+          <Link href="/passed" aria-label="Passed" className="leading-none">
+            <i className="ti ti-archive" style={{ fontSize: '16px' }} aria-hidden="true" />
+          </Link>
+          <Link href="/watchlists" aria-label="Watchlists" className="leading-none">
+            <i className="ti ti-bookmark" style={{ fontSize: '16px' }} aria-hidden="true" />
+          </Link>
+          <Link href="/settings" aria-label="Settings" className="leading-none">
+            <i className="ti ti-settings" style={{ fontSize: '16px' }} aria-hidden="true" />
+          </Link>
         </div>
       </div>
+
+      {/* Search bar */}
+      {showSearch && (
+        <div className="pt-[10px] pb-[4px]">
+          <Suspense>
+            <SearchBar initialQ={searchQuery} initialMinScore={min_score ?? ''} />
+          </Suspense>
+        </div>
+      )}
 
       {/* Filter chips */}
       <div className="flex gap-[6px] pt-[14px] pb-[12px] flex-wrap">
         <Link
-          href="/"
+          href={chipHref(null)}
           className="inline-block px-[11px] py-[4px] rounded-full text-[12px] cursor-pointer"
           style={
             !activeFilter
-              ? {
-                  background: 'var(--color-text-primary)',
-                  color: 'var(--color-background-primary)',
-                }
-              : {
-                  background: 'transparent',
-                  border: '0.5px solid var(--color-border-secondary)',
-                  color: 'var(--color-text-secondary)',
-                }
+              ? { background: 'var(--color-text-primary)', color: 'var(--color-background-primary)' }
+              : { background: 'transparent', border: '0.5px solid var(--color-border-secondary)', color: 'var(--color-text-secondary)' }
           }
         >
           All · {totalCount}
@@ -173,19 +232,12 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
           return (
             <Link
               key={type}
-              href={isActive ? '/' : `/?filter=${type}`}
+              href={isActive ? chipHref(null) : chipHref(type)}
               className="inline-block px-[11px] py-[4px] rounded-full text-[12px] cursor-pointer"
               style={
                 isActive
-                  ? {
-                      background: 'var(--color-text-primary)',
-                      color: 'var(--color-background-primary)',
-                    }
-                  : {
-                      background: 'transparent',
-                      border: '0.5px solid var(--color-border-secondary)',
-                      color: 'var(--color-text-secondary)',
-                    }
+                  ? { background: 'var(--color-text-primary)', color: 'var(--color-background-primary)' }
+                  : { background: 'transparent', border: '0.5px solid var(--color-border-secondary)', color: 'var(--color-text-secondary)' }
               }
             >
               {filterLabels[type] ?? type} · {filterCounts[type]}
@@ -196,21 +248,22 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
 
       {/* Metric cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-[8px] mb-[1.25rem]">
-        <MetricCard label="SIGNALS / 24H" value={signals24h ?? 0} />
+        <MetricCard label="SIGNALS / 7D" value={signals7d ?? 0} />
         <MetricCard label="HIGH PRIORITY" value={highPriorityCount ?? 0} />
         <MetricCard label="TRACKED PEOPLE" value={peopleCount ?? 0} />
-        <MetricCard label="WATCHLISTS" value={watchlistCount ?? 0} />
+        <MetricCard label="WATCHLISTS" value={watchlistCount ?? 0} href="/watchlists" />
       </div>
 
       {/* Feed section header */}
       <div className="flex items-center justify-between mb-[4px]">
         <div className="text-[13px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
-          {activeFilter ? `${filterLabels[activeFilter] ?? activeFilter} signals` : 'All signals'}
+          {searchQuery
+            ? `Results for "${searchQuery}"`
+            : activeFilter
+            ? `${filterLabels[activeFilter] ?? activeFilter} signals`
+            : 'All signals'}
         </div>
-        <div
-          className="font-mono text-[11px]"
-          style={{ color: 'var(--color-text-tertiary)' }}
-        >
+        <div className="font-mono text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
           SORTED BY FIT
         </div>
       </div>
@@ -219,7 +272,9 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
       {signals.length === 0 ? (
         <div className="py-[48px] text-center">
           <p className="text-[13px]" style={{ color: 'var(--color-text-tertiary)' }}>
-            {activeFilter
+            {searchQuery
+              ? `No signals match "${searchQuery}".`
+              : activeFilter
               ? 'No signals match your filter.'
               : 'No signals yet. The first ingestion run will populate this feed.'}
           </p>
@@ -256,9 +311,7 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
                 {initials}
               </div>
 
-              {/* Content */}
               <div className="flex-1 min-w-0">
-                {/* Header row */}
                 <div className="flex items-center gap-[6px] mb-[3px] flex-wrap">
                   <span className="text-[14px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
                     {name}
@@ -276,17 +329,12 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
                   </span>
                 </div>
 
-                {/* Summary */}
                 {signal.summary && (
-                  <div
-                    className="text-[13px] leading-[1.5]"
-                    style={{ color: 'var(--color-text-secondary)' }}
-                  >
+                  <div className="text-[13px] leading-[1.5]" style={{ color: 'var(--color-text-secondary)' }}>
                     {signal.summary}
                   </div>
                 )}
 
-                {/* Source attribution row */}
                 <div
                   className="flex items-center gap-[8px] mt-[7px] font-mono text-[11px]"
                   style={{ color: 'var(--color-text-tertiary)' }}
@@ -306,6 +354,12 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
                   <span>
                     {signalCount} {signalCount === 1 ? 'SIGNAL' : 'SIGNALS'}
                   </span>
+                  {person?.id && (
+                    <>
+                      <span>·</span>
+                      <PersonButton id={person.id} />
+                    </>
+                  )}
                   {person?.linkedin_url && (
                     <>
                       <span>·</span>
@@ -315,12 +369,8 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
                 </div>
               </div>
 
-              {/* Score */}
               <div className="flex flex-col items-end gap-[2px] flex-shrink-0">
-                <div
-                  className="text-[17px] font-medium font-mono"
-                  style={{ color: scoreColor }}
-                >
+                <div className="text-[17px] font-medium font-mono" style={{ color: scoreColor }}>
                   {score ?? '—'}
                 </div>
                 <div
@@ -335,32 +385,38 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
         })
       )}
 
-      {/* Bottom action bar */}
+      {/* Bottom action bar — pagination */}
       <div
         className="flex items-center justify-between pt-[14px] text-[12px]"
-        style={{
-          borderTop: '0.5px solid var(--color-border-tertiary)',
-          color: 'var(--color-text-tertiary)',
-        }}
+        style={{ borderTop: '0.5px solid var(--color-border-tertiary)', color: 'var(--color-text-tertiary)' }}
       >
         <span>
-          Showing {signals.length} of {totalCount}
+          {signals.length > 0
+            ? `Showing ${offset + 1}–${offset + signals.length} of ${totalCount}`
+            : 'No results'}
         </span>
-        <span className="font-mono">⌘K to search · ⌘N new watchlist</span>
+        <div className="flex items-center gap-[12px] font-mono">
+          {hasPrev && (
+            <Link href={pageHref(page - 1)} className="inline-flex items-center gap-[4px]">
+              <i className="ti ti-arrow-left" style={{ fontSize: '12px' }} aria-hidden="true" />
+              Prev
+            </Link>
+          )}
+          {hasNext && (
+            <Link href={pageHref(page + 1)} className="inline-flex items-center gap-[4px]">
+              Next
+              <i className="ti ti-arrow-right" style={{ fontSize: '12px' }} aria-hidden="true" />
+            </Link>
+          )}
+        </div>
       </div>
     </main>
   )
 }
 
-function MetricCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div
-      className="rounded-[8px]"
-      style={{
-        background: 'var(--color-background-secondary)',
-        padding: '10px 12px',
-      }}
-    >
+function MetricCard({ label, value, href }: { label: string; value: number; href?: string }) {
+  const inner = (
+    <>
       <div
         className="font-mono text-[10px] tracking-[0.06em]"
         style={{ color: 'var(--color-text-tertiary)' }}
@@ -368,6 +424,27 @@ function MetricCard({ label, value }: { label: string; value: number }) {
         {label}
       </div>
       <div className="font-mono text-[20px] font-medium mt-[2px]">{value}</div>
+    </>
+  )
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="block rounded-[8px]"
+        style={{ background: 'var(--color-background-secondary)', padding: '10px 12px' }}
+      >
+        {inner}
+      </Link>
+    )
+  }
+
+  return (
+    <div
+      className="rounded-[8px]"
+      style={{ background: 'var(--color-background-secondary)', padding: '10px 12px' }}
+    >
+      {inner}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { crustdataPersonFlow } from '@nev/ingestion'
+import { crustdataPersonFlow, githubWatch, whoisWatch } from '@nev/ingestion'
 import type { RawSignal, PeopleUpdate } from '@nev/ingestion'
 
 export const maxDuration = 300
@@ -8,6 +8,8 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const CRUSTDATA_KEY = process.env.CRUSTDATA_API_KEY!
 const CRON_SECRET = process.env.CRON_SECRET!
+const GITHUB_PAT = process.env.GITHUB_PAT
+const WHOXY_API_KEY = process.env.WHOXY_API_KEY
 
 const headers = (serviceRoleKey: string) => ({
   apikey: serviceRoleKey,
@@ -74,6 +76,8 @@ async function writePeopleUpdates(
     ...(u.full_name !== undefined ? { full_name: u.full_name } : {}),
     ...(u.current_title !== undefined ? { current_title: u.current_title } : {}),
     ...(u.current_company !== undefined ? { current_company: u.current_company } : {}),
+    ...(u.github_username !== undefined ? { github_username: u.github_username } : {}),
+    ...(u.twitter_handle !== undefined ? { twitter_handle: u.twitter_handle } : {}),
     last_enriched_at: u.last_enriched_at.toISOString(),
     ...(u.data ? { data: u.data } : {}),
   }))
@@ -105,32 +109,43 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const batch = await crustdataPersonFlow.run({
+    const ctx = {
       supabaseUrl: SUPABASE_URL,
       serviceRoleKey: SERVICE_ROLE_KEY,
       crustdataApiKey: CRUSTDATA_KEY,
       sinceAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-    })
+    }
+
+    const [crustBatch, ghBatch, whoisBatch] = await Promise.all([
+      crustdataPersonFlow.run(ctx),
+      githubWatch.run({ ...ctx, githubPat: GITHUB_PAT }),
+      whoisWatch.run({ ...ctx, whoisApiKey: WHOXY_API_KEY }),
+    ])
+
+    const allSignals = [...crustBatch.signals, ...ghBatch.signals, ...whoisBatch.signals]
+    const allPeopleUpdates = [...crustBatch.peopleUpdates, ...ghBatch.peopleUpdates, ...whoisBatch.peopleUpdates]
 
     const urlToPersonId = new Map<string, string>()
-    for (const u of batch.peopleUpdates) {
+    for (const u of allPeopleUpdates) {
       if (u.id && u.linkedin_url) urlToPersonId.set(u.linkedin_url, u.id)
     }
 
     const [signalResult, peopleResult] = await Promise.all([
-      writeSignals(batch.signals, urlToPersonId),
-      writePeopleUpdates(batch.peopleUpdates),
+      writeSignals(allSignals, urlToPersonId),
+      writePeopleUpdates(allPeopleUpdates),
     ])
 
     const errors = [
-      ...batch.runMetadata.errors,
+      ...crustBatch.runMetadata.errors,
+      ...ghBatch.runMetadata.errors,
+      ...whoisBatch.runMetadata.errors,
       ...(signalResult.error ? [signalResult.error] : []),
       ...(peopleResult.error ? [peopleResult.error] : []),
     ]
 
     return NextResponse.json({
       ok: errors.length === 0,
-      run: batch.runMetadata,
+      runs: [crustBatch.runMetadata, ghBatch.runMetadata, whoisBatch.runMetadata],
       signals: signalResult,
       people: peopleResult,
       errors,

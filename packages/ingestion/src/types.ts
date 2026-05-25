@@ -7,6 +7,8 @@ export interface IngestionContext {
   supabaseUrl: string
   serviceRoleKey: string
   crustdataApiKey: string
+  githubPat?: string
+  whoisApiKey?: string
   sinceAt: Date
   dryRun?: boolean
 }
@@ -46,6 +48,8 @@ export interface PeopleUpdate {
   full_name?: string
   current_title?: string
   current_company?: string
+  github_username?: string
+  twitter_handle?: string
   last_enriched_at: Date
   data?: Record<string, unknown>
 }

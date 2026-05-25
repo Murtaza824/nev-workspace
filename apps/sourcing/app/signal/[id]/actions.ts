@@ -5,8 +5,17 @@ import { revalidatePath } from 'next/cache'
 
 type ActiveStatus = 'pursuing' | 'passed' | 'snoozed' | 'reviewed'
 
+const STATUS_NOTE_BODY: Record<ActiveStatus, string> = {
+  pursuing: 'Marked as pursuing',
+  passed: 'Marked as passed',
+  snoozed: 'Snoozed for 30 days',
+  reviewed: 'Marked as reviewed',
+}
+
 export async function updateSignalStatus(signalId: string, status: ActiveStatus) {
   const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const signals = supabase.from('sourcing_signals') as any
   if (status === 'snoozed') {
@@ -18,8 +27,22 @@ export async function updateSignalStatus(signalId: string, status: ActiveStatus)
     const { error } = await signals.update({ status }).eq('id', signalId)
     if (error) throw new Error((error as Error).message)
   }
+
+  // Auto-note: record who changed the status and when
+  if (user) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const notes = supabase.from('sourcing_signal_notes') as any
+    await notes.insert({
+      signal_id: signalId,
+      author_id: user.id,
+      body: STATUS_NOTE_BODY[status],
+    })
+  }
+
   revalidatePath(`/signal/${signalId}`)
   revalidatePath('/')
+  revalidatePath('/pursuing')
+  revalidatePath('/passed')
 }
 
 export async function addNote(signalId: string, body: string) {

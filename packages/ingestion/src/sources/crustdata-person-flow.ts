@@ -18,6 +18,17 @@ interface CurrentEntry {
   is_default: boolean
 }
 
+interface SocialHandles {
+  dev_platform_identifier?: { profile_url?: string | null } | null
+  twitter_identifier?: { slug?: string | null } | null
+}
+
+interface DevPlatformProfile {
+  platform?: string
+  profile_url?: string | null
+  username?: string | null
+}
+
 interface CrustMatch {
   confidence_score: number
   person_data: {
@@ -27,12 +38,34 @@ interface CrustMatch {
         current: CurrentEntry[]
       }
     }
+    social_handles?: SocialHandles | null
+    dev_platform_profiles?: DevPlatformProfile[] | null
   }
 }
 
 interface EnrichResult {
   matched_on: string
   matches: CrustMatch[]
+}
+
+function extractGitHubUsername(
+  social_handles?: SocialHandles | null,
+  dev_platform_profiles?: DevPlatformProfile[] | null
+): string | undefined {
+  const devUrl = social_handles?.dev_platform_identifier?.profile_url
+  if (devUrl?.includes('github.com')) {
+    const username = devUrl.split('github.com/')[1]?.split('/')[0]?.split('?')[0]
+    if (username) return username
+  }
+  const ghProfile = dev_platform_profiles?.find(
+    p => p.platform?.toLowerCase() === 'github' || p.profile_url?.includes('github.com')
+  )
+  if (ghProfile?.username) return ghProfile.username
+  if (ghProfile?.profile_url) {
+    const username = ghProfile.profile_url.split('github.com/')[1]?.split('/')[0]?.split('?')[0]
+    if (username) return username
+  }
+  return undefined
 }
 
 function isStealthTitle(title: string | null | undefined): boolean {
@@ -55,7 +88,7 @@ async function fetchBatch(urls: string[], apiKey: string): Promise<EnrichResult[
     },
     body: JSON.stringify({
       professional_network_profile_urls: urls,
-      fields: ['basic_profile', 'experience'],
+      fields: ['basic_profile', 'experience', 'social_handles', 'dev_platform_profiles'],
     }),
   })
   if (!res.ok) {
@@ -114,6 +147,8 @@ export const crustdataPersonFlow: SignalSource = {
         const newTitle = pd.basic_profile?.current_title ?? null
         const defaultEntry = pd.experience?.employment_details?.current?.find(e => e.is_default)
         const newCompany = defaultEntry?.name ?? null
+        const githubUsername = extractGitHubUsername(pd.social_handles, pd.dev_platform_profiles)
+        const twitterHandle = pd.social_handles?.twitter_identifier?.slug ?? undefined
 
         // First run: current_title is NULL — establish baseline, emit nothing
         if (person.current_title === null) {
@@ -123,6 +158,8 @@ export const crustdataPersonFlow: SignalSource = {
             full_name: person.full_name,
             current_title: newTitle ?? undefined,
             current_company: newCompany ?? undefined,
+            github_username: githubUsername,
+            twitter_handle: twitterHandle,
             last_enriched_at: new Date(),
           })
           continue
@@ -136,6 +173,8 @@ export const crustdataPersonFlow: SignalSource = {
             id: person.id,
             linkedin_url: person.linkedin_url,
             full_name: person.full_name,
+            github_username: githubUsername,
+            twitter_handle: twitterHandle,
             last_enriched_at: new Date(),
           })
           continue
@@ -148,6 +187,8 @@ export const crustdataPersonFlow: SignalSource = {
             linkedin_url: person.linkedin_url,
             full_name: person.full_name,
             current_title: newTitle ?? undefined,
+            github_username: githubUsername,
+            twitter_handle: twitterHandle,
             last_enriched_at: new Date(),
           })
           continue
@@ -178,6 +219,8 @@ export const crustdataPersonFlow: SignalSource = {
           full_name: person.full_name,
           current_title: newTitle ?? undefined,
           current_company: newCompany ?? undefined,
+          github_username: githubUsername,
+          twitter_handle: twitterHandle,
           last_enriched_at: new Date(),
         })
       }
