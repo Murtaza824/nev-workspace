@@ -1,83 +1,69 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 
-function clearStaleAuthCookies() {
-  // Stale session cookies from previous failed attempts cause the Supabase
-  // client to try refreshing a broken session on init, which deadlocks before
-  // exchangeCodeForSession can run. Clear them but preserve the PKCE verifier.
-  document.cookie.split('; ').forEach(raw => {
-    const name = raw.split('=')[0].trim()
-    if (name.startsWith('sb-') && !name.endsWith('-code-verifier')) {
-      const base = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
-      document.cookie = base
-      document.cookie = `${base}; domain=.neweraventures.com`
-    }
-  })
-}
-
 function CallbackHandler({ setStatus }: { setStatus: (s: string) => void }) {
-  const router = useRouter()
   const searchParams = useSearchParams()
 
   useEffect(() => {
     const code = searchParams.get('code')
     const next = searchParams.get('next') ?? ''
 
-    async function handle() {
-      try {
-        if (!code) {
-          setStatus('Error: missing code')
-          window.location.replace('/login?error=missing_code')
-          return
-        }
+    if (!code) {
+      window.location.replace('/login?error=missing_code')
+      return
+    }
 
-        setStatus('Preparing…')
-        clearStaleAuthCookies()
+    setStatus('Exchanging…')
 
-        setStatus('Exchanging code…')
-        // isSingleton: false forces a fresh client so no stale lock or
-        // initializePromise from the login page can block this exchange.
-        const supabase = createBrowserClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          { isSingleton: false },
-        )
+    // createBrowserClient hardcodes detectSessionInUrl: isBrowser() after spreading
+    // options.auth, so it cannot be overridden. On any page whose URL contains ?code=,
+    // the client auto-calls exchangeCodeForSession during _initialize(), reads the PKCE
+    // verifier, and removes it in the finally block — before any manual call could run.
+    //
+    // Fix: don't call exchangeCodeForSession manually. Subscribe to onAuthStateChange
+    // and react to INITIAL_SESSION, which fires once _initialize() completes (success
+    // or failure). The auto-exchange IS the exchange; we just observe the result.
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    )
 
-        const result = await Promise.race([
-          supabase.auth.exchangeCodeForSession(code),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('exchange_timed_out_15s')), 15000),
-          ),
-        ])
+    const timeout = setTimeout(() => {
+      window.location.replace('/login?error=auth_failed&msg=timeout')
+    }, 15000)
 
-        const { data, error } = result
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event !== 'INITIAL_SESSION') return
 
-        if (error || !data.user) {
-          const msg = error?.message ?? 'no_user'
-          setStatus(`Error: ${msg}`)
-          window.location.replace(`/login?error=auth_failed&msg=${encodeURIComponent(msg)}`)
+        clearTimeout(timeout)
+        subscription.unsubscribe()
+
+        if (!session) {
+          setStatus('Error: no session')
+          window.location.replace('/login?error=auth_failed&msg=no_session')
           return
         }
 
         setStatus('Finalising…')
         await supabase.rpc('accept_invitation', {
-          p_user_id: data.user.id,
-          p_user_email: data.user.email!,
+          p_user_id: session.user.id,
+          p_user_email: session.user.email!,
         })
 
         const finaliseUrl = `/api/finalise-auth${next ? `?next=${encodeURIComponent(next)}` : ''}`
         setStatus('Setting session…')
         window.location.replace(finaliseUrl)
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        setStatus(`Exception: ${msg}`)
-      }
-    }
+      },
+    )
 
-    handle()
+    return () => {
+      clearTimeout(timeout)
+      subscription.unsubscribe()
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return null
