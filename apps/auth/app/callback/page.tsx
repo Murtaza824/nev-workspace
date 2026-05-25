@@ -47,7 +47,7 @@ function CallbackHandler() {
       })
 
       const redirectTarget = next.startsWith('http') ? next : 'https://lp.neweraventures.com'
-      router.replace(redirectTarget)
+      window.location.replace(redirectTarget)
     }
 
     handle()
