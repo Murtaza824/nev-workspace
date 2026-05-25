@@ -60,12 +60,17 @@ export function createAccessMiddleware(toolId: string) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('app_access, status')
+      .select('app_access, status, last_seen_at')
       .eq('id', user.id)
       .single()
 
     if (!profile || profile.status !== 'active' || !(profile.app_access as string[]).includes(toolId)) {
       return NextResponse.redirect(`${AUTH_URL}/no-access`)
+    }
+
+    const lastSeen = (profile as unknown as { last_seen_at: string | null }).last_seen_at
+    if (!lastSeen || new Date(lastSeen).getTime() < Date.now() - 60 * 60 * 1000) {
+      await supabase.rpc('touch_last_seen')
     }
 
     return responseRef.current
@@ -91,12 +96,17 @@ export function createAdminMiddleware() {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, status')
+      .select('role, status, last_seen_at')
       .eq('id', user.id)
       .single()
 
     if (!profile || profile.status !== 'active' || profile.role !== 'admin') {
       return NextResponse.redirect(`${AUTH_URL}/no-access`)
+    }
+
+    const lastSeen = (profile as unknown as { last_seen_at: string | null }).last_seen_at
+    if (!lastSeen || new Date(lastSeen).getTime() < Date.now() - 60 * 60 * 1000) {
+      await supabase.rpc('touch_last_seen')
     }
 
     return responseRef.current
