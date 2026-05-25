@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 
 const PARENT_DOMAIN =
   process.env.NODE_ENV === 'production'
@@ -16,7 +15,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=missing_code`)
   }
 
-  const cookieStore = await cookies()
+  // Collect cookies emitted by exchangeCodeForSession so we can attach them
+  // directly to the redirect response. Using cookies() from next/headers and
+  // returning NextResponse.redirect() are two separate response objects — the
+  // Set-Cookie headers from the former never reach the latter.
+  const pendingCookies: { name: string; value: string; options: CookieOptions }[] = []
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,17 +27,10 @@ export async function GET(request: NextRequest) {
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll()
+          return request.cookies.getAll()
         },
-        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, {
-              ...options,
-              ...(PARENT_DOMAIN ? { domain: PARENT_DOMAIN } : {}),
-              sameSite: 'lax',
-              secure: process.env.NODE_ENV === 'production',
-            }),
-          )
+        setAll(cookiesToSet) {
+          pendingCookies.push(...cookiesToSet)
         },
       },
     },
@@ -46,17 +42,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=auth_failed`)
   }
 
-  // Run accept_invitation RPC in case this is the user's first login from an invite.
-  // The function is a no-op if there is no pending invitation for this email.
+  // No-op if there is no pending invitation for this email.
   await supabase.rpc('accept_invitation', {
     p_user_id: data.user.id,
     p_user_email: data.user.email!,
   })
 
-  // Redirect to the originally requested destination or the LP portal as default.
-  const redirectTarget = next.startsWith('http')
-    ? next
-    : `https://lp.neweraventures.com`
+  const redirectTarget = next.startsWith('http') ? next : `https://lp.neweraventures.com`
+  const response = NextResponse.redirect(redirectTarget)
 
-  return NextResponse.redirect(redirectTarget)
+  // Write session cookies onto the redirect response so the browser receives
+  // them before it follows the Location header.
+  pendingCookies.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, {
+      ...options,
+      ...(PARENT_DOMAIN ? { domain: PARENT_DOMAIN } : {}),
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    })
+  })
+
+  return response
 }
