@@ -4,11 +4,6 @@ import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 
-const COOKIE_OPTIONS =
-  process.env.NODE_ENV === 'production'
-    ? { domain: '.neweraventures.com', sameSite: 'lax' as const, secure: true }
-    : undefined
-
 function CallbackHandler({ setStatus }: { setStatus: (s: string) => void }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -26,10 +21,11 @@ function CallbackHandler({ setStatus }: { setStatus: (s: string) => void }) {
         }
 
         setStatus('Exchanging code…')
+        // No custom cookieOptions here — the domain option interferes with the
+        // PKCE verifier lookup. A server hop below re-writes with parent domain.
         const supabase = createBrowserClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          COOKIE_OPTIONS ? { cookieOptions: COOKIE_OPTIONS } : {},
         )
 
         const { data, error } = await supabase.auth.exchangeCodeForSession(code)
@@ -47,9 +43,11 @@ function CallbackHandler({ setStatus }: { setStatus: (s: string) => void }) {
           p_user_email: data.user.email!,
         })
 
-        const redirectTarget = next.startsWith('http') ? next : 'https://lp.neweraventures.com'
-        setStatus(`Redirecting to ${redirectTarget}`)
-        window.location.replace(redirectTarget)
+        // Hand off to a server route that re-writes session cookies with the
+        // parent domain so all *.neweraventures.com apps share the session.
+        const finaliseUrl = `/api/finalise-auth${next ? `?next=${encodeURIComponent(next)}` : ''}`
+        setStatus('Setting session…')
+        window.location.replace(finaliseUrl)
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         setStatus(`Exception: ${msg}`)
