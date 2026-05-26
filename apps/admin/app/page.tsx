@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createAdminClient, createServerClient } from '@nev/db'
 import type { Database } from '@nev/db'
+import { DeactivateButton } from './users/DeactivateButton'
 
 type ProfileRow = Pick<
   Database['public']['Tables']['profiles']['Row'],
@@ -70,7 +71,7 @@ export default async function UsersPage() {
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-[0.5px] border-[var(--color-border)]">
-                {['Email', 'Role', 'Access', 'Status', 'Last seen'].map((h) => (
+                {['Email', 'Role', 'Access', 'Status', 'Last seen', ''].map((h) => (
                   <th
                     key={h}
                     className="py-2 pr-6 text-left font-mono text-xs font-medium uppercase tracking-wider text-ink-tertiary"
@@ -116,6 +117,11 @@ export default async function UsersPage() {
                   </td>
                   <td className="py-3 pr-6 font-mono text-xs text-ink-tertiary">
                     {formatLastSeen(row.last_seen_at as string | null)}
+                  </td>
+                  <td className="py-3 text-right">
+                    {row.status === 'active' && (
+                      <DeactivateButton userId={row.id} />
+                    )}
                   </td>
                 </tr>
               ))}
