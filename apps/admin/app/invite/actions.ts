@@ -33,7 +33,7 @@ export async function inviteUser(formData: FormData) {
   if (insertError) throw new Error(`Failed to create invitation: ${insertError.message}`)
 
   const adminClient = createAdminClient()
-  const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
+  const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
     data: { invitation_token: token },
     redirectTo: `${process.env.NEV_AUTH_URL ?? 'https://auth.neweraventures.com'}/callback`,
   })
@@ -41,6 +41,15 @@ export async function inviteUser(formData: FormData) {
   if (inviteError) {
     await supabase.from('invitations').delete().eq('token', token)
     throw new Error(`Failed to send invitation: ${inviteError.message}`)
+  }
+
+  // Immediately reflect the pending invitation in the profile so the admin
+  // list shows the correct role/access and INVITED status before acceptance.
+  if (inviteData?.user?.id) {
+    await adminClient
+      .from('profiles')
+      .update({ status: 'invited', role, app_access: appAccess })
+      .eq('id', inviteData.user.id)
   }
 
   redirect('/')
