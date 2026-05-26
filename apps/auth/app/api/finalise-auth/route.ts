@@ -6,10 +6,22 @@ const PARENT_DOMAIN =
     ? `.${process.env.NEV_PARENT_DOMAIN ?? 'neweraventures.com'}`
     : undefined
 
+const APP_URLS: Record<string, string> = {
+  sourcing: 'https://sourcing.neweraventures.com',
+  admin:    'https://admin.neweraventures.com',
+  lp_portal: 'https://lp.neweraventures.com',
+}
+
+function pickLandingPage(appAccess: string[]): string {
+  for (const app of ['sourcing', 'admin', 'lp_portal']) {
+    if (appAccess.includes(app)) return APP_URLS[app]
+  }
+  return APP_URLS['lp_portal']
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const next = searchParams.get('next') ?? ''
-  const redirectTarget = next.startsWith('http') ? next : 'https://lp.neweraventures.com'
 
   const pendingCookies: { name: string; value: string; options: CookieOptions }[] = []
 
@@ -34,6 +46,17 @@ export async function GET(request: NextRequest) {
 
   if (error || !data.session) {
     return NextResponse.redirect(`${origin}/login?error=no_session`)
+  }
+
+  let redirectTarget = next.startsWith('http') ? next : null
+
+  if (!redirectTarget) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('app_access')
+      .eq('id', data.session.user.id)
+      .single()
+    redirectTarget = pickLandingPage((profile?.app_access as string[]) ?? [])
   }
 
   const response = NextResponse.redirect(redirectTarget)
