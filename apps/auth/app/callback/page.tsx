@@ -48,14 +48,7 @@ function CallbackHandler({ setStatus }: { setStatus: (s: string) => void }) {
           return
         }
 
-        setStatus('Finalising…')
-        await supabase.rpc('accept_invitation', {
-          p_user_id: session.user.id,
-          p_user_email: session.user.email!,
-        })
-
         const finaliseUrl = `/api/finalise-auth${next ? `?next=${encodeURIComponent(next)}` : ''}`
-        setStatus('Setting session…')
         window.location.replace(finaliseUrl)
       },
     )

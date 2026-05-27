@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 
 const PARENT_DOMAIN =
   process.env.NODE_ENV === 'production'
@@ -48,15 +49,40 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=no_session`)
   }
 
+  // Use the service role key to reliably run invitation acceptance and
+  // fetch the profile — this bypasses RLS and any client-side timing issues.
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  )
+
+  // Accept any pending invitation server-side. If already accepted by the
+  // client callback this is a no-op (the RPC only acts on accepted_at IS NULL).
+  await adminClient.rpc('accept_invitation', {
+    p_user_id: data.session.user.id,
+    p_user_email: data.session.user.email ?? '',
+  })
+
+  const { data: profileData } = await adminClient
+    .from('profiles')
+    .select('app_access, status')
+    .eq('id', data.session.user.id)
+    .single()
+
+  // Fallback: if still 'invited' (e.g. the invite was already consumed by
+  // the client but the profile update didn't commit), activate directly.
+  if (profileData?.status === 'invited') {
+    await adminClient
+      .from('profiles')
+      .update({ status: 'active' })
+      .eq('id', data.session.user.id)
+  }
+
   let redirectTarget = next.startsWith('http') ? next : null
 
   if (!redirectTarget) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('app_access')
-      .eq('id', data.session.user.id)
-      .single()
-    redirectTarget = pickLandingPage((profile?.app_access as string[]) ?? [])
+    redirectTarget = pickLandingPage((profileData?.app_access as string[]) ?? [])
   }
 
   const response = NextResponse.redirect(redirectTarget)
