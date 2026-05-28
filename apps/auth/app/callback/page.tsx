@@ -10,10 +10,27 @@ function CallbackHandler({ setStatus }: { setStatus: (s: string) => void }) {
   useEffect(() => {
     const next = searchParams.get('next') ?? ''
 
+    // Check for error in hash fragment first — Supabase appends error=/error_description=
+    // when the token is invalid, expired, or already consumed. Without this check we'd
+    // silently hang for 15s and show a generic timeout instead of the real error.
+    const hash = typeof window !== 'undefined' ? window.location.hash.slice(1) : ''
+    const hashParams = new URLSearchParams(hash)
+    const hashError = hashParams.get('error_description') ?? hashParams.get('error')
+    if (hashError) {
+      window.location.replace(`/login?error=auth_failed&msg=${encodeURIComponent(hashError)}`)
+      return
+    }
+
+    // Surface diagnostic info so we can see what URL format the invite link uses
+    // (PKCE ?code= vs implicit #access_token=) without exposing token values.
+    const qp = searchParams.toString()
+    const hasToken = hashParams.has('access_token')
+    setStatus(
+      `params: ${qp ? qp.replace(/=[^&]*/g, '=…') : '(none)'} | hash: ${hasToken ? 'access_token' : hash ? hash.split('=')[0] : '(none)'}`,
+    )
+
     // createBrowserClient._initialize() handles both PKCE (?code= query param) and
-    // implicit flow (hash fragment #access_token=) automatically. Do not check for
-    // ?code= here — invite links may use hash fragments and would be incorrectly
-    // bounced to login before the session could be established.
+    // implicit flow (hash fragment #access_token=) automatically.
     //
     // Subscribe to INITIAL_SESSION which fires once _initialize() completes,
     // regardless of which flow was used. session will be null on failure.
