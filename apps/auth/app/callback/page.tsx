@@ -8,24 +8,15 @@ function CallbackHandler({ setStatus }: { setStatus: (s: string) => void }) {
   const searchParams = useSearchParams()
 
   useEffect(() => {
-    const code = searchParams.get('code')
     const next = searchParams.get('next') ?? ''
 
-    if (!code) {
-      window.location.replace('/login?error=missing_code')
-      return
-    }
-
-    setStatus('Exchanging…')
-
-    // createBrowserClient hardcodes detectSessionInUrl: isBrowser() after spreading
-    // options.auth, so it cannot be overridden. On any page whose URL contains ?code=,
-    // the client auto-calls exchangeCodeForSession during _initialize(), reads the PKCE
-    // verifier, and removes it in the finally block — before any manual call could run.
+    // createBrowserClient._initialize() handles both PKCE (?code= query param) and
+    // implicit flow (hash fragment #access_token=) automatically. Do not check for
+    // ?code= here — invite links may use hash fragments and would be incorrectly
+    // bounced to login before the session could be established.
     //
-    // Fix: don't call exchangeCodeForSession manually. Subscribe to onAuthStateChange
-    // and react to INITIAL_SESSION, which fires once _initialize() completes (success
-    // or failure). The auto-exchange IS the exchange; we just observe the result.
+    // Subscribe to INITIAL_SESSION which fires once _initialize() completes,
+    // regardless of which flow was used. session will be null on failure.
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
