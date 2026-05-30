@@ -1,4 +1,6 @@
 export type { SignalSource, IngestionContext, RawSignal, SignalBatch, PeopleUpdate } from './types'
+export type { DiscoveryContext, DiscoveryResult } from './sources/crustdata-discovery-flow'
 export { crustdataPersonFlow } from './sources/crustdata-person-flow'
 export { githubWatch } from './sources/github-watch'
 export { whoisWatch } from './sources/whois-watch'
+export { runDiscoveryFlow } from './sources/crustdata-discovery-flow'
