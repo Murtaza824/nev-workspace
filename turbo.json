@@ -5,7 +5,11 @@
     "NEXT_PUBLIC_SUPABASE_ANON_KEY",
     "SUPABASE_SERVICE_ROLE_KEY",
     "NEV_PARENT_DOMAIN",
-    "NEV_AUTH_URL"
+    "NEV_AUTH_URL",
+    "CRUSTDATA_API_KEY",
+    "CRON_SECRET",
+    "GITHUB_PAT",
+    "WHOXY_API_KEY"
   ],
   "tasks": {
     "build": {
