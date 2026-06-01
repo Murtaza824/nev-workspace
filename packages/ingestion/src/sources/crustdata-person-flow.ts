@@ -150,8 +150,24 @@ export const crustdataPersonFlow: SignalSource = {
         const githubUsername = extractGitHubUsername(pd.social_handles, pd.dev_platform_profiles)
         const twitterHandle = pd.social_handles?.twitter_identifier?.slug ?? undefined
 
-        // First run: current_title is NULL — establish baseline, emit nothing
+        // First run: current_title is NULL — establish baseline.
+        // If already in stealth, emit the signal immediately rather than silently setting baseline.
         if (person.current_title === null) {
+          if (isStealthTitle(newTitle)) {
+            signals.push({
+              signal_type: 'stealth_entry',
+              source: 'crustdata',
+              person_linkedin_url: person.linkedin_url,
+              event_at: new Date(),
+              summary: `${person.full_name}: currently "${newTitle ?? 'stealth'}" at ${newCompany ?? 'unknown'}`,
+              evidence: {
+                new_title: newTitle,
+                new_company: newCompany,
+                confidence_score: confidence,
+                discovered_in_stealth: true,
+              },
+            })
+          }
           peopleUpdates.push({
             id: person.id,
             linkedin_url: person.linkedin_url,
