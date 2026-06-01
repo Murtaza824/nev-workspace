@@ -189,6 +189,9 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
           >
             <i className="ti ti-search" style={{ fontSize: '16px' }} aria-hidden="true" />
           </Link>
+          <Link href="/add" aria-label="Add person" className="leading-none">
+            <i className="ti ti-user-plus" style={{ fontSize: '16px' }} aria-hidden="true" />
+          </Link>
           <Link href="/pursuing" aria-label="Pursuing" className="leading-none">
             <i className="ti ti-star" style={{ fontSize: '16px' }} aria-hidden="true" />
           </Link>
