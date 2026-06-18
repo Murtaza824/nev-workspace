@@ -3,7 +3,7 @@ import { z } from 'zod'
 const schema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   NEV_PARENT_DOMAIN: z.string().default('neweraventures.com'),
   NEV_AUTH_URL: z.string().url().default('https://auth.neweraventures.com'),
 })
